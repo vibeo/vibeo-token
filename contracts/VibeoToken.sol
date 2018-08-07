@@ -23,6 +23,7 @@ contract VibeoToken is StandardToken, NoOwner, CustomPausable {
   address public marketingWallet;
   bool public initialized;
   uint256 public icoEndDate;
+  uint public year = 365 * 1 days;
   bool public icoDateInitialized;
   uint256 public constant INITIAL_SUPPLY = 950000000 * (10 ** uint256(decimals)); //950 M
 
@@ -38,7 +39,7 @@ contract VibeoToken is StandardToken, NoOwner, CustomPausable {
     if(transfersAfterICO[_from]) {
       if(!icoDateInitialized || now < icoEndDate) revert();
     } else if(transfersAfter1Year[_from]) {
-      if(!icoDateInitialized || now < icoEndDate + 365* 1 days) revert();
+      if(!icoDateInitialized || (now - icoEndDate) < year) revert();
     }
     _;
   }
