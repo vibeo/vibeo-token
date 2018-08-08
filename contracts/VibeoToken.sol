@@ -37,8 +37,9 @@ contract VibeoToken is StandardToken, NoOwner, CustomPausable {
 
   modifier canTransfer(address _from, address _to) {
     if(transfersAfterICO[_from]) {
-      if(!icoDateInitialized || now < icoEndDate) revert();
-    } else if(transfersAfter1Year[_from]) {
+      if(!icoDateInitialized) revert();
+    }
+    else if(transfersAfter1Year[_from]) {
       if(!icoDateInitialized || (now - icoEndDate) < year) revert();
     }
     _;
@@ -94,7 +95,7 @@ contract VibeoToken is StandardToken, NoOwner, CustomPausable {
     userAdoptionWallet = _userAdoptionWallet;
   }
 
-  function setICOEndDate(uint _icoEndDate) public onlyWhitelisted {
+  function setICOEndDate() public onlyWhitelisted {
     icoEndDate = now;
     icoDateInitialized = true;
   }
