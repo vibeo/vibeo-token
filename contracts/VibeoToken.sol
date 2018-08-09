@@ -22,9 +22,10 @@ contract VibeoToken is StandardToken, NoOwner, CustomPausable {
   address public userAdoptionWallet;
   address public marketingWallet;
   bool public initialized;
+  bool public transfersEnabled;
+  mapping(address => bool) public transferAgents;
   uint256 public icoEndDate;
   uint public year = 365 * 1 days;
-  bool public icoDateInitialized;
   uint256 public constant INITIAL_SUPPLY = 950000000 * (10 ** uint256(decimals)); //950 M
 
   mapping(address => bool) public transfersAfterICO;
@@ -37,10 +38,14 @@ contract VibeoToken is StandardToken, NoOwner, CustomPausable {
 
   modifier canTransfer(address _from, address _to) {
     if(transfersAfterICO[_from]) {
-      if(!icoDateInitialized) revert();
+      if(icoEndDate == 0) revert();
     }
     else if(transfersAfter1Year[_from]) {
-      if(!icoDateInitialized || (now - icoEndDate) < year) revert();
+      if(icoEndDate == 0 || (now - icoEndDate) < year) {
+        revert();
+      }
+    } else if (!transfersEnabled && !transferAgents[_from]) {
+      revert();
     }
     _;
   }
@@ -80,6 +85,10 @@ contract VibeoToken is StandardToken, NoOwner, CustomPausable {
     partnershipWallet = _partnershipWallet;
   }
 
+  function setTransferAgent(address _agent, bool _allowed) public onlyWhitelisted {
+    transferAgents[_agent] = _allowed;
+  }
+
   function setCommunityRewardsWallet(address _communityRewardsWallet) public onlyWhitelisted {
     require(!initialized);
     communityRewardsWallet = _communityRewardsWallet;
@@ -97,7 +106,7 @@ contract VibeoToken is StandardToken, NoOwner, CustomPausable {
 
   function setICOEndDate() public onlyWhitelisted {
     icoEndDate = now;
-    icoDateInitialized = true;
+    transfersEnabled = true;
   }
 
   function setTreasuryWallet(address _treasuryWallet) public onlyWhitelisted {
@@ -107,15 +116,29 @@ contract VibeoToken is StandardToken, NoOwner, CustomPausable {
 
   function initialize() public onlyWhitelisted {
     require(!initialized);
-    balances[msg.sender] = INITIAL_SUPPLY;
+    uint totalBalance = 0;
+    /* balances[msg.sender] = INITIAL_SUPPLY; */
+    balances[teamWallet] =  50000000 * (10 ** uint256(decimals));
+    balances[advisorsWallet] = 80000000 * (10 ** uint256(decimals));
+    balances[treasuryWallet] = 90000000 * (10 ** uint256(decimals));
+    balances[partnershipWallet] = 60000000 * (10 ** uint256(decimals));
+    balances[communityRewardsWallet] = 90000000 * (10 ** uint256(decimals));
+    balances[userAdoptionWallet] = 95000000 * (10 ** uint256(decimals));
+    balances[marketingWallet] = 32000000 * (10 ** uint256(decimals));
 
-    transfer(teamWallet, 50000000 * (10 ** uint256(decimals)));
-    transfer(advisorsWallet, 80000000 * (10 ** uint256(decimals)));
-    transfer(treasuryWallet, 90000000 * (10 ** uint256(decimals)));
-    transfer(partnershipWallet, 60000000 * (10 ** uint256(decimals)));
-    transfer(communityRewardsWallet, 90000000 * (10 ** uint256(decimals)));
-    transfer(userAdoptionWallet, 95000000 * (10 ** uint256(decimals)));
-    transfer(marketingWallet, 32000000 * (10 ** uint256(decimals)));
+    totalBalance = totalBalance
+                  .add(balanceOf(teamWallet))
+                  .add(balanceOf(advisorsWallet))
+                  .add(balanceOf(treasuryWallet))
+                  .add(balanceOf(partnershipWallet))
+                  .add(balanceOf(communityRewardsWallet))
+                  .add(balanceOf(userAdoptionWallet))
+                  .add(balanceOf(marketingWallet));
+
+    balances[msg.sender] = INITIAL_SUPPLY.sub(totalBalance);
+
+    setTransferAgent(marketingWallet, true);
+    setTransferAgent(partnershipWallet, true);
 
     transfersAfterICO[treasuryWallet] = true;
     transfersAfterICO[communityRewardsWallet] = true;
@@ -123,7 +146,6 @@ contract VibeoToken is StandardToken, NoOwner, CustomPausable {
 
     transfersAfter1Year[teamWallet] = true;
     transfersAfter1Year[advisorsWallet] = true;
-
     initialized = true;
   }
 

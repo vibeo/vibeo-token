@@ -40,7 +40,6 @@ contract('Token', async function(accounts) {
       assert((await token.userAdoptionWallet()) == userAdoptionWallet);
       assert((await token.marketingWallet()) == marketingWallet);
       assert((await token.initialized()) == false);
-      assert((await token.icoDateInitialized()) == false);
       assert((await token.icoEndDate()).toNumber() == 0);
       const totalSupply = await token.totalSupply();
       totalSupply.should.be.bignumber.equal(expectedTotalSupply);
@@ -77,6 +76,7 @@ contract('Token', async function(accounts) {
       expectedBalances[communityRewardsWallet] = ether(90000000);
       expectedBalances[userAdoptionWallet] = ether(95000000);
       expectedBalances[marketingWallet] = ether(32000000);
+      expectedBalances[accounts[0]] = ether(453000000);
       const wallets = Object.keys(expectedBalances);
       let sum = new BigNumber(0);
       for(let i=0; i< wallets.length; i++) {
@@ -84,8 +84,10 @@ contract('Token', async function(accounts) {
         balance.should.be.bignumber.equal(expectedBalances[wallets[i]]);
       }
       assert((await token.initialized()));
+
       const transfersAfter1Year = [teamWallet, advisorsWallet];
       const transfersAfterICO = [treasuryWallet, communityRewardsWallet, userAdoptionWallet];
+      const transferAgents = [partnershipWallet, marketingWallet];
 
       for(let i=0;i<transfersAfter1Year.length; i++) {
         assert(await token.transfersAfter1Year(transfersAfter1Year[i]));
@@ -93,6 +95,10 @@ contract('Token', async function(accounts) {
 
       for(let i=0;i<transfersAfterICO.length; i++) {
         assert(await token.transfersAfterICO(transfersAfterICO[i]));
+      }
+
+      for (var i = 0; i < transferAgents.length; i++) {
+        assert(await token.transferAgents(transferAgents[i]));
       }
 
     });
@@ -192,6 +198,7 @@ contract('Token', async function(accounts) {
     const marketingWallet = accounts[6];
     const userAdoptionWallet = accounts[7];
     const transfersAfter1Year = [teamWallet, advisorsWallet];
+    const transferAgents = [marketingWallet, partnershipWallet];
     const transfersAfterICO = [treasuryWallet, communityRewardsWallet, userAdoptionWallet];
     beforeEach(async () => {
       token = await Token.new(
@@ -255,6 +262,37 @@ contract('Token', async function(accounts) {
         let balance = await token.balanceOf(accounts[8])
         assert(balance.toNumber() == sum);
       }
+    })
+
+    it('transfersAfter1Year transfer after ico is over and after 1 year', async () => {
+      const ct = await latestTime();
+      await token.setICOEndDate();
+
+      await increaseTimeTo(ct + duration.years(1) + 10);
+      let sum = 0;
+      for(let i=0;i<transfersAfter1Year.length;i++) {
+        await token.transfer(accounts[8], 1, { from: transfersAfter1Year[i] });
+        sum++;
+        let balance = await token.balanceOf(accounts[8])
+        assert(balance.toNumber() == sum);
+      }
+    });
+
+    it('transfer agents can transfer tokens during the ico', async () => {
+      assert((await token.icoEndDate()).toNumber() == 0);
+      for(i=0;i<transferAgents.length;i++) {
+        await token.transfer(accounts[8], 1, { from: transferAgents[i] });
+        let balance  = await token.balanceOf(accounts[8])
+        assert(balance.toNumber() == i+1);
+      }
+      await token.transfer(accounts[9], 1, { from: accounts[8] }).should.be.rejectedWith(EVMRevert);
+    })
+
+    it('tokens are transferable after ico icoEndDate is set', async () => {
+      await token.transfer(accounts[9], 100, { from: transferAgents[0] });
+      await token.setICOEndDate();
+      await token.transfer(accounts[8], 1, { from: accounts[9] });
+      assert((await token.balanceOf(accounts[8])).toNumber() == 1);
     })
   })
 
