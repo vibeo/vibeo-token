@@ -45,12 +45,12 @@ contract VibeoToken is StandardToken, NoOwner, CustomPausable {
   function setICOEndDate() public onlyWhitelisted {
     require(icoEndDate == 0);
     icoEndDate = now;
+    transfersEnabled = true;
   }
 
-  function enableTransfers() public onlyWhitelisted {
-    require(icoEndDate > 0);
-    require(!transfersEnabled);
-    transfersEnabled = true;
+  function mintOnce(string key, address _to, uint balance) notMinted(key) internal {
+    mintTokens(_to, balance);
+    minted[keccak256(key)] = true;
   }
 
   function mintTeamTokens() public onlyWhitelisted {
@@ -75,11 +75,6 @@ contract VibeoToken is StandardToken, NoOwner, CustomPausable {
     setTransferAgent(msg.sender, true);
   }
 
-  function mintOnce(string key, address _to, uint balance) notMinted(key) internal {
-    mintTokens(_to, balance);
-    minted[keccak256(key)] = true;
-  }
-
   function mintCommunityRewards() public onlyWhitelisted {
     if(icoEndDate == 0) revert();
     mintOnce("communityRewards", msg.sender, 90000000);
@@ -87,7 +82,13 @@ contract VibeoToken is StandardToken, NoOwner, CustomPausable {
 
   function mintUserAdoptionTokens() public onlyWhitelisted {
     if(icoEndDate == 0) revert();
-    mintTokens("useradoption", msg.sender, 95000000);
+    mintOnce("useradoption", msg.sender, 95000000);
+  }
+
+  function mintMarketingTokens() public onlyWhitelisted {
+    mintOnce("marketing", msg.sender, 32000000);
+    setTransferAgent(msg.sender, true);
+
   }
 
   function setTransferAgent(address _agent, bool _state) onlyWhitelisted public {
