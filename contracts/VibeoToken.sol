@@ -14,143 +14,95 @@ contract VibeoToken is StandardToken, NoOwner, CustomPausable {
   string public constant name = "Vibeo";
   string public constant symbol = "VBEO";
   uint8 public constant decimals = 18;
-  address public teamWallet;
-  address public advisorsWallet;
-  address public treasuryWallet;
-  address public partnershipWallet;
-  address public communityRewardsWallet;
-  address public userAdoptionWallet;
-  address public marketingWallet;
-  bool public initialized;
   bool public transfersEnabled;
+  mapping(bytes32 => bool) public minted;
   mapping(address => bool) public transferAgents;
   uint256 public icoEndDate;
   uint public year = 365 * 1 days;
-  uint256 public constant INITIAL_SUPPLY = 950000000 * (10 ** uint256(decimals)); //950 M
-
-  mapping(address => bool) public transfersAfterICO;
-  mapping(address => bool) public transfersAfter1Year;
-
+  uint256 public constant MAX_SUPPLY = 950000000 * (10 ** uint256(decimals)); //950 M
 
   /**
    * @dev Constructor that gives msg.sender all of existing tokens.
    */
 
   modifier canTransfer(address _from, address _to) {
-    if(transfersAfterICO[_from]) {
-      if(icoEndDate == 0) revert();
-    }
-    else if(transfersAfter1Year[_from]) {
-      if(icoEndDate == 0 || (now - icoEndDate) < year) {
-        revert();
-      }
-    } else if (!transfersEnabled && !transferAgents[_from]) {
+    if (!transfersEnabled && !transferAgents[_from]) {
       revert();
     }
     _;
   }
 
-  constructor(address _teamWallet, address _advisorsWallet, address _treasuryWallet, address _partnershipWallet, address _communityRewardsWallet, address _userAdoptionWallet, address _marketingWallet) public {
-    totalSupply_ = INITIAL_SUPPLY;
-    require(_teamWallet != address(0));
-    require(_advisorsWallet != address(0));
-    require(_treasuryWallet != address(0));
-    require(_partnershipWallet != address(0));
-    require(_communityRewardsWallet != address(0));
-    require(_marketingWallet != address(0));
-    require(_userAdoptionWallet != address(0));
-    teamWallet = _teamWallet;
-    advisorsWallet = _advisorsWallet;
-    treasuryWallet = _treasuryWallet;
-    partnershipWallet = _partnershipWallet;
-    communityRewardsWallet = _communityRewardsWallet;
-    userAdoptionWallet = _userAdoptionWallet;
-    marketingWallet = _marketingWallet;
+  modifier notMinted(string key) {
+    if(minted[keccak256(key)]) revert();
+    _;
   }
 
-
-
-  function setTeamWallet(address _teamWallet) public onlyWhitelisted {
-    require(!initialized);
-    teamWallet = _teamWallet;
-  }
-
-  function setAdvisorsWallet(address _advisorWallet) public onlyWhitelisted {
-    require(!initialized);
-    advisorsWallet = _advisorWallet;
-  }
-
-  function setPartnershipWallet(address _partnershipWallet) public onlyWhitelisted {
-    require(!initialized);
-    partnershipWallet = _partnershipWallet;
-  }
-
-  function setTransferAgent(address _agent, bool _allowed) public onlyWhitelisted {
-    transferAgents[_agent] = _allowed;
-  }
-
-  function setCommunityRewardsWallet(address _communityRewardsWallet) public onlyWhitelisted {
-    require(!initialized);
-    communityRewardsWallet = _communityRewardsWallet;
-  }
-
-  function setMarketingWallet(address _marketingWallet) public onlyWhitelisted {
-    require(!initialized);
-    marketingWallet = _marketingWallet;
-  }
-
-  function setUserAdoptionWallet(address _userAdoptionWallet) public onlyWhitelisted {
-    require(!initialized);
-    userAdoptionWallet = _userAdoptionWallet;
+  constructor() public {
+    mintTokens(msg.sender, 453000000);
+    setTransferAgent(msg.sender, true);
   }
 
   function setICOEndDate() public onlyWhitelisted {
+    require(icoEndDate == 0);
     icoEndDate = now;
+  }
+
+  function enableTransfers() public onlyWhitelisted {
+    require(icoEndDate > 0);
+    require(!transfersEnabled);
     transfersEnabled = true;
   }
 
-  function setTreasuryWallet(address _treasuryWallet) public onlyWhitelisted {
-    require(!initialized);
-    treasuryWallet = _treasuryWallet;
+  function mintTeamTokens() public onlyWhitelisted {
+    if(icoEndDate == 0) revert();
+    if(now < icoEndDate + year) revert();
+    mintOnce("team", msg.sender, 50000000);
   }
 
-  function initialize() public onlyWhitelisted {
-    require(!initialized);
-    uint totalBalance = 0;
-    /* balances[msg.sender] = INITIAL_SUPPLY; */
-    balances[teamWallet] =  50000000 * (10 ** uint256(decimals));
-    balances[advisorsWallet] = 80000000 * (10 ** uint256(decimals));
-    balances[treasuryWallet] = 90000000 * (10 ** uint256(decimals));
-    balances[partnershipWallet] = 60000000 * (10 ** uint256(decimals));
-    balances[communityRewardsWallet] = 90000000 * (10 ** uint256(decimals));
-    balances[userAdoptionWallet] = 95000000 * (10 ** uint256(decimals));
-    balances[marketingWallet] = 32000000 * (10 ** uint256(decimals));
+  function mintTreasuryTokens() public onlyWhitelisted {
+    if(icoEndDate == 0) revert();
+    mintOnce("treasury", msg.sender, 90000000);
+  }
 
-    totalBalance = totalBalance
-                  .add(balanceOf(teamWallet))
-                  .add(balanceOf(advisorsWallet))
-                  .add(balanceOf(treasuryWallet))
-                  .add(balanceOf(partnershipWallet))
-                  .add(balanceOf(communityRewardsWallet))
-                  .add(balanceOf(userAdoptionWallet))
-                  .add(balanceOf(marketingWallet));
+  function mintAdvisorTokens() public onlyWhitelisted {
+    if(icoEndDate == 0) revert();
+    if(now < icoEndDate + year) revert();
+    mintOnce("advisorsTokens", msg.sender, 80000000);
+  }
 
-    balances[msg.sender] = INITIAL_SUPPLY.sub(totalBalance);
+  function mintPartnershipTokens() public onlyWhitelisted {
+    mintOnce("partnerships", msg.sender, 60000000);
+    setTransferAgent(msg.sender, true);
+  }
 
-    setTransferAgent(marketingWallet, true);
-    setTransferAgent(partnershipWallet, true);
+  function mintOnce(string key, address _to, uint balance) notMinted(key) internal {
+    mintTokens(_to, balance);
+    minted[keccak256(key)] = true;
+  }
 
-    transfersAfterICO[treasuryWallet] = true;
-    transfersAfterICO[communityRewardsWallet] = true;
-    transfersAfterICO[userAdoptionWallet] = true;
+  function mintCommunityRewards() public onlyWhitelisted {
+    if(icoEndDate == 0) revert();
+    mintOnce("communityRewards", msg.sender, 90000000);
+  }
 
-    transfersAfter1Year[teamWallet] = true;
-    transfersAfter1Year[advisorsWallet] = true;
-    initialized = true;
+  function mintUserAdoptionTokens() public onlyWhitelisted {
+    if(icoEndDate == 0) revert();
+    mintTokens("useradoption", msg.sender, 95000000);
+  }
+
+  function setTransferAgent(address _agent, bool _state) onlyWhitelisted public {
+    transferAgents[_agent] = _state;
   }
 
   function transfer(address _to, uint256 _value) public canTransfer(msg.sender, _to) whenNotPaused returns (bool) {
     return super.transfer(_to, _value);
+  }
+
+  function mintTokens(address _to, uint _value) internal {
+    _value = _value.mul(10 ** uint256(decimals));
+    require(totalSupply_.add(_value) <= MAX_SUPPLY);
+    totalSupply_ = totalSupply_.add(_value);
+    balances[_to] = balances[_to].add(_value);
   }
 
   function transferFrom(address _from, address _to, uint256 _value) canTransfer(_from, _to) public whenNotPaused returns (bool) {
