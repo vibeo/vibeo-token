@@ -15,286 +15,164 @@ require('chai')
 contract('Token', async function(accounts) {
   describe('Token construction', async () => {
     it('should initialize', async () => {
-      const teamWallet = accounts[1];
-      const advisorsWallet = accounts[2];
-      const treasuryWallet = accounts[3];
-      const partnershipWallet = accounts[4];
-      const communityRewardsWallet = accounts[5];
-      const marketingWallet = accounts[6];
-      const userAdoptionWallet = accounts[7];
-      const expectedTotalSupply = ether(950000000);
-      const token = await Token.new(
-        teamWallet,
-        advisorsWallet,
-        treasuryWallet,
-        partnershipWallet,
-        communityRewardsWallet,
-        userAdoptionWallet,
-        marketingWallet
-      );
-      assert((await token.teamWallet()) == teamWallet);
-      assert((await token.advisorsWallet()) == advisorsWallet);
-      assert((await token.treasuryWallet()) == treasuryWallet);
-      assert((await token.partnershipWallet()) == partnershipWallet);
-      assert((await token.communityRewardsWallet()) == communityRewardsWallet);
-      assert((await token.userAdoptionWallet()) == userAdoptionWallet);
-      assert((await token.marketingWallet()) == marketingWallet);
-      assert((await token.initialized()) == false);
-      assert((await token.icoEndDate()).toNumber() == 0);
+      const expectedTotalSupply = ether(453000000);
+      const token = await Token.new();
       const totalSupply = await token.totalSupply();
       totalSupply.should.be.bignumber.equal(expectedTotalSupply);
+      const MAX_SUPPLY = await token.MAX_SUPPLY();
+      MAX_SUPPLY.should.be.bignumber.equal(ether(950000000));
+      assert(await token.transferAgents(accounts[0]));
     });
   });
 
-  describe('Initialize', async () => {
-    const teamWallet = accounts[1];
-    const advisorsWallet = accounts[2];
-    const treasuryWallet = accounts[3];
-    const partnershipWallet = accounts[4];
-    const communityRewardsWallet = accounts[5];
-    const marketingWallet = accounts[6];
-    const userAdoptionWallet = accounts[7];
+  describe('Minting tokens', async () => {
     let token;
     beforeEach(async () => {
-      token = await Token.new(
-        teamWallet,
-        advisorsWallet,
-        treasuryWallet,
-        partnershipWallet,
-        communityRewardsWallet,
-        userAdoptionWallet,
-        marketingWallet
-      );
+      token = await Token.new();
+    });
+    it('mint to treasury', async () => {
+      const totalSupply = await token.totalSupply();
+      const treasuryTokens = ether(90000000);
+      await token.setICOEndDate();
+      await token.addAddressToWhitelist(accounts[1]);
+      await token.mintTreasuryTokens({ from : accounts[1] });
+      const balance = await token.balanceOf(accounts[1])
+      balance.should.be.bignumber.equal(treasuryTokens);
+      (await token.totalSupply()).should.be.bignumber.equal(totalSupply.add(treasuryTokens));
+
+    });
+
+    it('mint communityRewards', async () => {
+      const totalSupply = await token.totalSupply();
+      const communityRewards = ether(90000000);
+      await token.setICOEndDate();
+      await token.addAddressToWhitelist(accounts[1]);
+      await token.mintCommunityRewards({ from : accounts[1] });
+      const balance = await token.balanceOf(accounts[1])
+      balance.should.be.bignumber.equal(communityRewards);
+      (await token.totalSupply()).should.be.bignumber.equal(totalSupply.add(communityRewards));
+      await token.mintCommunityRewards().should.be.rejectedWith(EVMRevert);
+    });
+
+    it('mint team tokens', async () => {
+      const totalSupply = await token.totalSupply();
+      const teamTokens = ether(50000000);
+      await token.addAddressToWhitelist(accounts[1]);
+      await token.setICOEndDate();
+      const endDate = (await token.icoEndDate()).toNumber();
+
+      await token.mintTeamTokens({ from : accounts[1] })
+      .should.be.rejectedWith(EVMRevert);
+
+      await increaseTimeTo(endDate + duration.years(1) + 1);
+      await token.mintTeamTokens({ from : accounts[1] })
+      const balance = await token.balanceOf(accounts[1])
+      balance.should.be.bignumber.equal(teamTokens);
+      (await token.totalSupply()).should.be.bignumber.equal(totalSupply.add(teamTokens));
+      await token.mintTeamTokens().should.be.rejectedWith(EVMRevert);
+    });
+
+    it('mint advisorsTokens', async () => {
+      const totalSupply = await token.totalSupply();
+      const advisorsTokens = ether(80000000);
+      await token.addAddressToWhitelist(accounts[1]);
+      await token.setICOEndDate();
+      const endDate = (await token.icoEndDate()).toNumber();
+
+      await token.mintAdvisorTokens({ from : accounts[1] })
+      .should.be.rejectedWith(EVMRevert);
+
+      await increaseTimeTo(endDate + duration.years(1) + 1);
+      await token.mintAdvisorTokens({ from : accounts[1] })
+      const balance = await token.balanceOf(accounts[1])
+      balance.should.be.bignumber.equal(advisorsTokens);
+      (await token.totalSupply()).should.be.bignumber.equal(totalSupply.add(advisorsTokens));
+      await token.mintAdvisorTokens().should.be.rejectedWith(EVMRevert);
+    });
+
+    it('mint userAdoption tokens', async () => {
+      const totalSupply = await token.totalSupply();
+      const userAdoptionTokens = ether(95000000);
+      await token.addAddressToWhitelist(accounts[1]);
+      await token.mintUserAdoptionTokens({ from : accounts[1] }).should.be.rejectedWith(EVMRevert);
+      await token.setICOEndDate();
+      await token.mintUserAdoptionTokens({ from : accounts[1] })
+      const balance = await token.balanceOf(accounts[1])
+      balance.should.be.bignumber.equal(userAdoptionTokens);
+      (await token.totalSupply()).should.be.bignumber.equal(totalSupply.add(userAdoptionTokens));
+      //only once
+      await token.mintUserAdoptionTokens().should.be.rejectedWith(EVMRevert);
+    });
+
+    it('mint partnership tokens', async () => {
+      const totalSupply = await token.totalSupply();
+      const partnershipTokens = ether(60000000);
+      await token.addAddressToWhitelist(accounts[1]);
+      await token.mintPartnershipTokens({ from : accounts[1] })
+      const balance = await token.balanceOf(accounts[1])
+      balance.should.be.bignumber.equal(partnershipTokens);
+      (await token.totalSupply()).should.be.bignumber.equal(totalSupply.add(partnershipTokens));
+      await token.mintPartnershipTokens().should.be.rejectedWith(EVMRevert);
+      assert(await token.transferAgents(accounts[1]));
+    });
+
+    it('mint marketing tokens', async () => {
+      const totalSupply = await token.totalSupply();
+      const marketingTokens = ether(32000000);
+      await token.addAddressToWhitelist(accounts[1]);
+      await token.mintMarketingTokens({ from : accounts[1] })
+      const balance = await token.balanceOf(accounts[1])
+      balance.should.be.bignumber.equal(marketingTokens);
+      (await token.totalSupply()).should.be.bignumber.equal(totalSupply.add(marketingTokens));
+      await token.mintMarketingTokens().should.be.rejectedWith(EVMRevert);
+      assert(await token.transferAgents(accounts[1]));
+    });
+    it('should match max supply after minting', async () => {
+      const MAX_SUPPLY = await token.MAX_SUPPLY();
+      await token.setICOEndDate();
+      const endDate = (await token.icoEndDate()).toNumber();
+      await increaseTimeTo(endDate + duration.years(1) + 1);
+      await token.mintTeamTokens({ from : accounts[0] })
+      await token.mintAdvisorTokens({ from : accounts[0] })
+      await token.mintTreasuryTokens({ from : accounts[0] })
+      await token.mintPartnershipTokens({ from : accounts[0] })
+      await token.mintCommunityRewards({ from : accounts[0] })
+      await token.mintUserAdoptionTokens({ from : accounts[0] })
+      await token.mintMarketingTokens({ from : accounts[0] })
+      const totalSupply = await token.totalSupply();
+      totalSupply.should.be.bignumber.equal(MAX_SUPPLY);
+      (await token.balanceOf(accounts[0])).should.be.bignumber.equal(MAX_SUPPLY);
     })
-    it('it transfer tokens to all the requried wallets', async () => {
-      await token.initialize();
-      const expectedBalances = {};
-      expectedBalances[teamWallet] = ether(50000000);
-      expectedBalances[advisorsWallet] = ether(80000000);
-      expectedBalances[treasuryWallet] = ether(90000000);
-      expectedBalances[partnershipWallet] = ether(60000000);
-      expectedBalances[communityRewardsWallet] = ether(90000000);
-      expectedBalances[userAdoptionWallet] = ether(95000000);
-      expectedBalances[marketingWallet] = ether(32000000);
-      expectedBalances[accounts[0]] = ether(453000000);
-      const wallets = Object.keys(expectedBalances);
-      let sum = new BigNumber(0);
-      for(let i=0; i< wallets.length; i++) {
-        const balance = await token.balanceOf(wallets[i]);
-        balance.should.be.bignumber.equal(expectedBalances[wallets[i]]);
-      }
-      assert((await token.initialized()));
-
-      const transfersAfter1Year = [teamWallet, advisorsWallet];
-      const transfersAfterICO = [treasuryWallet, communityRewardsWallet, userAdoptionWallet];
-      const transferAgents = [partnershipWallet, marketingWallet];
-
-      for(let i=0;i<transfersAfter1Year.length; i++) {
-        assert(await token.transfersAfter1Year(transfersAfter1Year[i]));
-      }
-
-      for(let i=0;i<transfersAfterICO.length; i++) {
-        assert(await token.transfersAfterICO(transfersAfterICO[i]));
-      }
-
-      for (var i = 0; i < transferAgents.length; i++) {
-        assert(await token.transferAgents(transferAgents[i]));
-      }
-
-    });
-
-    it('initialize cannot be called twice', async () => {
-      await token.initialize();
-      await token.initialize().should.be.rejectedWith(EVMRevert);
-    });
-
-    it('initialize cannot be called by non-whitelisted', async () => {
-      await token.initialize({ from : accounts[1] }).should.be.rejectedWith(EVMRevert);
-    });
   });
 
-  describe('set different wallets', async () => {
-    const teamWallet = accounts[1];
-    const advisorsWallet = accounts[2];
-    const treasuryWallet = accounts[3];
-    const partnershipWallet = accounts[4];
-    const communityRewardsWallet = accounts[5];
-    const marketingWallet = accounts[6];
-    const userAdoptionWallet = accounts[7];
+  describe('Transfering tokens', async () => {
+    let token;
     beforeEach(async () => {
-      token = await Token.new(
-        teamWallet,
-        advisorsWallet,
-        treasuryWallet,
-        partnershipWallet,
-        communityRewardsWallet,
-        userAdoptionWallet,
-        marketingWallet
-      );
-    });
-    it('should set teamwallet', async () => {
-      await token.setTeamWallet(accounts[1]);
-      assert((await token.teamWallet()) == accounts[1]);
+      token = await Token.new();
     });
 
-    it('should set advisorsWallet', async () => {
-      await token.setAdvisorsWallet(accounts[1]);
-      assert((await token.advisorsWallet()) == accounts[1]);
+    it('Owner can transfer tokens', async () => {
+      await token.transfer(accounts[1], 1);
+      assert((await token.balanceOf(accounts[1])).toNumber() == 1)
+    })
+
+    it('transfer agents can transfer tokens when transfers are disabled', async () => {
+      await token.transfer(accounts[1], 10);
+      await token.setTransferAgent(accounts[1], true);
+      await token.transfer(accounts[2], 10, { from: accounts[1] });
+      assert((await token.balanceOf(accounts[2])).toNumber() == 10)
+      await token.transfer(accounts[3], 10, { from: accounts[2] })
+      .should.be.rejectedWith(EVMRevert);
     });
 
-    it('should set partnershipWallet', async () => {
-      await token.setPartnershipWallet(accounts[1]);
-      assert((await token.partnershipWallet()) == accounts[1]);
-    });
+    it('enableTransfers ', async () => {
+      await token.transfer(accounts[2], 10, { from: accounts[0] });
+      await token.setICOEndDate();
+      let endDate = await token.icoEndDate();
+      await increaseTimeTo(endDate.toNumber() + duration.years(1) + 10);
+      await token.enableTransfers();
+      await token.transfer(accounts[3], 10, { from: accounts[2] })
 
-    it('should set treasuryWallet', async () => {
-      await token.setTreasuryWallet(accounts[1]);
-      assert((await token.treasuryWallet()) == accounts[1]);
-    });
-
-    it('should set communityRewardsWallet', async () => {
-      await token.setCommunityRewardsWallet(accounts[1]);
-      assert((await token.communityRewardsWallet()) == accounts[1]);
-    });
-
-    it('should set userAdoptionWallet', async () => {
-      await token.setUserAdoptionWallet(accounts[1]);
-      assert((await token.userAdoptionWallet()) == accounts[1]);
-    });
-
-    it('should set marketingWallet', async () => {
-      await token.setMarketingWallet(accounts[1]);
-      assert((await token.marketingWallet()) == accounts[1]);
-    });
-
-    it('cannot be called after initialize', async () => {
-      await token.initialize();
-      await token.setTeamWallet(accounts[1]).should.be.rejectedWith(EVMRevert);
-      await token.setMarketingWallet(accounts[1]).should.be.rejectedWith(EVMRevert);
-      await token.setUserAdoptionWallet(accounts[1]).should.be.rejectedWith(EVMRevert);
-      await token.setTreasuryWallet(accounts[1]).should.be.rejectedWith(EVMRevert);
-      await token.setAdvisorsWallet(accounts[1]).should.be.rejectedWith(EVMRevert);
-      await token.setCommunityRewardsWallet(accounts[1]).should.be.rejectedWith(EVMRevert);
-      await token.setPartnershipWallet(accounts[1]).should.be.rejectedWith(EVMRevert);
-    });
-
-    it('cannot be called by non-whitelist', async () => {
-      await token.setTeamWallet(accounts[1], { from: accounts[2] }).should.be.rejectedWith(EVMRevert);
-      await token.setMarketingWallet(accounts[1], { from: accounts[2] }).should.be.rejectedWith(EVMRevert);
-      await token.setUserAdoptionWallet(accounts[1], { from: accounts[2] }).should.be.rejectedWith(EVMRevert);
-      await token.setTreasuryWallet(accounts[1], {from: accounts[2] }).should.be.rejectedWith(EVMRevert);
-      await token.setAdvisorsWallet(accounts[1], {from: accounts[2] }).should.be.rejectedWith(EVMRevert);
-      await token.setCommunityRewardsWallet(accounts[1], {from: accounts[2] }).should.be.rejectedWith(EVMRevert);
-      await token.setPartnershipWallet(accounts[1], {from: accounts[2] }).should.be.rejectedWith(EVMRevert);
     });
   });
-
-  describe('Transfer function', async () => {
-    const teamWallet = accounts[1];
-    const advisorsWallet = accounts[2];
-    const treasuryWallet = accounts[3];
-    const partnershipWallet = accounts[4];
-    const communityRewardsWallet = accounts[5];
-    const marketingWallet = accounts[6];
-    const userAdoptionWallet = accounts[7];
-    const transfersAfter1Year = [teamWallet, advisorsWallet];
-    const transferAgents = [marketingWallet, partnershipWallet];
-    const transfersAfterICO = [treasuryWallet, communityRewardsWallet, userAdoptionWallet];
-    beforeEach(async () => {
-      token = await Token.new(
-        teamWallet,
-        advisorsWallet,
-        treasuryWallet,
-        partnershipWallet,
-        communityRewardsWallet,
-        userAdoptionWallet,
-        marketingWallet
-      );
-      await token.initialize();
-    });
-
-    it('teamWallet, advisorsWallet, treasuryWallet, communityRewardsWallet, userAdoptionWallet should not transfer when ico has not been initialized', async () => {
-      const wallets = transfersAfterICO.concat(transfersAfter1Year);
-      for(let i=0;i<wallets.length;i++) {
-        await token.transfer(accounts[8], 1, {from: wallets[i]})
-        .should.be.rejectedWith(EVMRevert);
-      }
-    });
-
-    it('transfersAfterICO can transfer after ico is over', async () =>{
-      await token.setICOEndDate();
-      let sum = 0;
-      for(let i=0;i<transfersAfterICO.length;i++) {
-        await token.transfer(accounts[8], 1, { from: transfersAfterICO[i] });
-        sum++;
-        let balance = await token.balanceOf(accounts[8])
-        assert(balance.toNumber() == sum);
-      }
-    })
-
-    it('transfersAfter1Year cannot transfer after ico is over and before 1 year', async () =>{
-      await token.setICOEndDate();
-      await increaseTimeTo(latestTime() + duration.hours(24));
-      for(let i=0;i<transfersAfter1Year.length;i++) {
-        await token.transfer(accounts[8], 1, { from: transfersAfter1Year[i] })
-        .should.be.rejectedWith(EVMRevert);
-      }
-    })
-
-    it('transfersAfter1Year cannot transfer after ico is over and before 1 year', async () =>{
-      await token.setICOEndDate();
-      await increaseTimeTo((await latestTime()) + duration.hours(24));
-      for(let i=0;i<transfersAfter1Year.length;i++) {
-        await token.transfer(accounts[8], 1, { from: transfersAfter1Year[i] })
-        .should.be.rejectedWith(EVMRevert);
-      }
-    })
-
-    it('transfersAfter1Year transfer after ico is over and after 1 year', async () =>{
-      const ct = await latestTime();
-      await token.setICOEndDate();
-
-      await increaseTimeTo(ct + duration.years(1) + 10);
-      let sum = 0;
-      for(let i=0;i<transfersAfter1Year.length;i++) {
-        await token.transfer(accounts[8], 1, { from: transfersAfter1Year[i] });
-        sum++;
-        let balance = await token.balanceOf(accounts[8])
-        assert(balance.toNumber() == sum);
-      }
-    })
-
-    it('transfersAfter1Year transfer after ico is over and after 1 year', async () => {
-      const ct = await latestTime();
-      await token.setICOEndDate();
-
-      await increaseTimeTo(ct + duration.years(1) + 10);
-      let sum = 0;
-      for(let i=0;i<transfersAfter1Year.length;i++) {
-        await token.transfer(accounts[8], 1, { from: transfersAfter1Year[i] });
-        sum++;
-        let balance = await token.balanceOf(accounts[8])
-        assert(balance.toNumber() == sum);
-      }
-    });
-
-    it('transfer agents can transfer tokens during the ico', async () => {
-      assert((await token.icoEndDate()).toNumber() == 0);
-      for(i=0;i<transferAgents.length;i++) {
-        await token.transfer(accounts[8], 1, { from: transferAgents[i] });
-        let balance  = await token.balanceOf(accounts[8])
-        assert(balance.toNumber() == i+1);
-      }
-      await token.transfer(accounts[9], 1, { from: accounts[8] }).should.be.rejectedWith(EVMRevert);
-    })
-
-    it('tokens are transferable after ico icoEndDate is set', async () => {
-      await token.transfer(accounts[9], 100, { from: transferAgents[0] });
-      await token.setICOEndDate();
-      await token.transfer(accounts[8], 1, { from: accounts[9] });
-      assert((await token.balanceOf(accounts[8])).toNumber() == 1);
-    })
-  })
-
-
 });

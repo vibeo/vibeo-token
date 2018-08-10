@@ -25,7 +25,7 @@ contract VibeoToken is StandardToken, NoOwner, CustomPausable {
    * @dev Constructor that gives msg.sender all of existing tokens.
    */
 
-  modifier canTransfer(address _from, address _to) {
+  modifier canTransfer(address _from) {
     if (!transfersEnabled && !transferAgents[_from]) {
       revert();
     }
@@ -42,13 +42,18 @@ contract VibeoToken is StandardToken, NoOwner, CustomPausable {
     setTransferAgent(msg.sender, true);
   }
 
-  function setICOEndDate() public onlyWhitelisted {
+  function setICOEndDate() public whenNotPaused onlyWhitelisted {
     require(icoEndDate == 0);
     icoEndDate = now;
+  }
+
+  function enableTransfers() public whenNotPaused onlyWhitelisted {
+    require(now > icoEndDate);
+    require(!transfersEnabled);
     transfersEnabled = true;
   }
 
-  function mintOnce(string key, address _to, uint balance) notMinted(key) internal {
+  function mintOnce(string key, address _to, uint balance) whenNotPaused notMinted(key) internal {
     mintTokens(_to, balance);
     minted[keccak256(key)] = true;
   }
@@ -91,11 +96,11 @@ contract VibeoToken is StandardToken, NoOwner, CustomPausable {
 
   }
 
-  function setTransferAgent(address _agent, bool _state) onlyWhitelisted public {
+  function setTransferAgent(address _agent, bool _state) whenNotPaused onlyWhitelisted public {
     transferAgents[_agent] = _state;
   }
 
-  function transfer(address _to, uint256 _value) public canTransfer(msg.sender, _to) whenNotPaused returns (bool) {
+  function transfer(address _to, uint256 _value) public canTransfer(msg.sender) whenNotPaused returns (bool) {
     return super.transfer(_to, _value);
   }
 
@@ -106,19 +111,19 @@ contract VibeoToken is StandardToken, NoOwner, CustomPausable {
     balances[_to] = balances[_to].add(_value);
   }
 
-  function transferFrom(address _from, address _to, uint256 _value) canTransfer(_from, _to) public whenNotPaused returns (bool) {
+  function transferFrom(address _from, address _to, uint256 _value) canTransfer(_from) public whenNotPaused returns (bool) {
     return super.transferFrom(_from, _to, _value);
   }
 
-  function approve(address _spender,uint256 _value) public whenNotPaused returns (bool) {
+  function approve(address _spender,uint256 _value) public whenNotPaused canTransfer(msg.sender) returns (bool) {
     return super.approve(_spender, _value);
   }
 
-  function increaseApproval(address _spender, uint _addedValue) public whenNotPaused returns (bool success) {
+  function increaseApproval(address _spender, uint _addedValue) public whenNotPaused canTransfer(msg.sender) returns (bool success) {
     return super.increaseApproval(_spender, _addedValue);
   }
 
-  function decreaseApproval(address _spender, uint _subtractedValue) public whenNotPaused returns (bool success) {
+  function decreaseApproval(address _spender, uint _subtractedValue) public whenNotPaused canTransfer(msg.sender) returns (bool success) {
     return super.decreaseApproval(_spender, _subtractedValue);
   }
 }
