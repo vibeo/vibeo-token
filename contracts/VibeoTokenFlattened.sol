@@ -530,7 +530,7 @@ contract BurnableToken is BasicToken {
 
 
 /*
-Copyright 2018 Moonwhale
+Copyright 2018 Vibeo
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
