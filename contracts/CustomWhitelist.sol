@@ -1,5 +1,5 @@
 /*
-Copyright 2018 VibeoToken
+Copyright 2018 Moonwhale
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
 contract CustomWhitelist is Ownable {
   mapping(address => bool) public whitelist;
-  uint public numberOfWhitelists;
+  uint256 public numberOfWhitelists;
 
   event WhitelistedAddressAdded(address addr);
   event WhitelistedAddressRemoved(address addr);
@@ -43,9 +43,12 @@ contract CustomWhitelist is Ownable {
    * @param addr address
    */
   function addAddressToWhitelist(address addr) onlyWhitelisted  public {
+    require(addr != address(0));
     require(!whitelist[addr]);
+
     whitelist[addr] = true;
     numberOfWhitelists++;
+
     emit WhitelistedAddressAdded(addr);
   }
 
@@ -54,11 +57,14 @@ contract CustomWhitelist is Ownable {
    * @param addr address
    */
   function removeAddressFromWhitelist(address addr) onlyWhitelisted  public {
+    require(addr != address(0));
     require(whitelist[addr]);
     //the owner can not be unwhitelisted
     require(addr != owner);
+
     whitelist[addr] = false;
     numberOfWhitelists--;
+
     emit WhitelistedAddressRemoved(addr);
   }
 
