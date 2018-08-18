@@ -690,7 +690,7 @@ contract VibeoToken is StandardToken, BurnableToken, NoOwner, CustomPausable {
   }
 
   ///@notice Computes keccak256 hash of the supplied value.
-  ///@param _key The string value to compute has from.
+  ///@param _key The string value to compute hash from.
   function computeHash(string _key) private pure returns(bytes32){
     return keccak256(abi.encodePacked(_key));
   }
@@ -701,7 +701,7 @@ contract VibeoToken is StandardToken, BurnableToken, NoOwner, CustomPausable {
     if(mintingList[computeHash(_key)]) {
       revert();
     }
-
+    
     _;
   }
 
